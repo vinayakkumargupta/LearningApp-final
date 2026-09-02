@@ -1,0 +1,146 @@
+================================================================================
+PRODUCTION BACKEND API REQUIREMENTS & SPECIFICATION
+================================================================================
+Project: LearningApp (Android Mobile Application)
+Target Engine: RESTful JSON API
+Base URL Pattern: https://api.learningapp.com/v1
+
+This document specifies the exact REST API endpoints, HTTP methods, headers, and
+JSON payload schemas required by the Learning App frontend.
+
+--------------------------------------------------------------------------------
+1. AUTHENTICATION SERVICE (/v1/auth)
+--------------------------------------------------------------------------------
+
+1.1 Login
+- Endpoint: POST /v1/auth/login
+- Request Headers: Content-Type: application/json
+- Request Body:
+  {
+    "email": "student@learningapp.com",
+    "password": "Password@123"
+  }
+- Response (200 OK):
+  {
+    "success": true,
+    "message": "Login successful",
+    "data": {
+      "user": {
+        "id": "usr_1001",
+        "name": "Alex Johnson",
+        "email": "student@learningapp.com"
+      },
+      "accessToken": "eyJhbGciOiJIUzI1NiIsIn...",
+      "refreshToken": "d98f7a6b5c..."
+    }
+  }
+
+1.2 Sign Up
+- Endpoint: POST /v1/auth/signup
+- Request Body:
+  {
+    "name": "Alex Johnson",
+    "email": "student@learningapp.com",
+    "password": "Password@123"
+  }
+- Response (201 Created): Returns user profile and auth tokens.
+
+1.3 Forgot Password
+- Endpoint: POST /v1/auth/forgot-password
+- Request Body: {"email": "student@learningapp.com"}
+- Response (200 OK): {"success": true, "message": "Instructions sent to email."}
+
+--------------------------------------------------------------------------------
+2. DASHBOARD, MATERIALS & PAYMENT UNLOCK SERVICE (/v1/learning)
+--------------------------------------------------------------------------------
+
+2.1 Get PDF Materials & Video Lectures
+- Endpoint: GET /v1/learning/materials?search={query}&filter={filter}
+- Request Headers: Authorization: Bearer <accessToken>
+- Response (200 OK):
+  {
+    "success": true,
+    "data": [
+      {
+        "id": "pdf_101",
+        "title": "Data Structures & Algorithms Cheat Sheet",
+        "subject": "Computer Science",
+        "pagesCount": 42,
+        "fileSizeMb": "4.2 MB",
+        "pdfUrl": "https://cdn.learningapp.com/pdfs/dsa_cheatsheet.pdf",
+        "videoUrl": null,
+        "videoDuration": null,
+        "description": "Summary of Arrays, Trees, Graphs, and DP.",
+        "category": "Core CS",
+        "materialType": "PDF",
+        "isLocked": false,
+        "priceInInr": 0
+      },
+      {
+        "id": "vid_101",
+        "title": "Kotlin Coroutines & Flow Video Masterclass",
+        "subject": "Mobile Development",
+        "pagesCount": 0,
+        "fileSizeMb": "0 MB",
+        "pdfUrl": "",
+        "videoUrl": "https://cdn.learningapp.com/videos/coroutines.mp4",
+        "videoDuration": "45 Mins",
+        "description": "Video lecture covering structured concurrency.",
+        "category": "Video Lecture",
+        "materialType": "VIDEO",
+        "isLocked": true,
+        "priceInInr": 199
+      }
+    ]
+  }
+
+2.2 Get Available Exams & PYQs
+- Endpoint: GET /v1/learning/exams?search={query}&filter={filter}
+- Request Headers: Authorization: Bearer <accessToken>
+- Response (200 OK): Returns list of available 50-MCQ mock tests and PYQs with duration, price, and lock status.
+
+2.3 Unlock Premium Content / Process Payment
+- Endpoint: POST /v1/learning/unlock
+- Request Headers: Authorization: Bearer <accessToken>
+- Request Body:
+  {
+    "itemId": "vid_101",
+    "itemType": "MATERIAL", // "MATERIAL" or "EXAM"
+    "paymentTransactionId": "pay_tx_987123"
+  }
+- Response (200 OK):
+  {
+    "success": true,
+    "message": "Content unlocked successfully"
+  }
+
+2.4 Get User Test Attempt History
+- Endpoint: GET /v1/learning/history
+- Request Headers: Authorization: Bearer <accessToken>
+- Response (200 OK):
+  {
+    "success": true,
+    "data": [
+      {
+        "resultId": "res_887123",
+        "examId": "exam_cs_01",
+        "examTitle": "All India Full Length CS & General Aptitude Mock Test 1",
+        "marksObtained": 152.0,
+        "totalMarks": 200,
+        "percentage": 76.0,
+        "accuracy": 88.2,
+        "rank": 28,
+        "percentile": 99.37,
+        "dateAttemptedFormatted": "02 Sep, 04:30 PM",
+        "timeTakenSeconds": 2340
+      }
+    ]
+  }
+
+--------------------------------------------------------------------------------
+3. MOCK TEST & QUESTION ENGINE SERVICE (/v1/exams)
+--------------------------------------------------------------------------------
+
+3.1 Get Questions for Exam (50 MCQs): GET /v1/exams/{examId}/questions
+3.2 Submit Exam Answers & Calculate Results: POST /v1/exams/{examId}/submit
+3.3 Get Detailed Scorecard & Solutions: GET /v1/exams/results/{resultId}
