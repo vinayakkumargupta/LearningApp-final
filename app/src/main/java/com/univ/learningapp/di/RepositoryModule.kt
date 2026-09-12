@@ -1,8 +1,8 @@
 package com.univ.learningapp.di
 
-import com.univ.learningapp.data.repository.AuthRepositoryImpl
-import com.univ.learningapp.data.repository.LearningRepositoryImpl
-import com.univ.learningapp.data.repository.TestRepositoryImpl
+import com.univ.learningapp.data.repository.FirebaseAuthRepositoryImpl
+import com.univ.learningapp.data.repository.FirebaseLearningRepositoryImpl
+import com.univ.learningapp.data.repository.FirebaseTestRepositoryImpl
 import com.univ.learningapp.domain.repository.AuthRepository
 import com.univ.learningapp.domain.repository.LearningRepository
 import com.univ.learningapp.domain.repository.TestRepository
@@ -19,18 +19,18 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindAuthRepository(
-        impl: AuthRepositoryImpl
+        impl: FirebaseAuthRepositoryImpl
     ): AuthRepository
 
     @Binds
     @Singleton
     abstract fun bindLearningRepository(
-        impl: LearningRepositoryImpl
+        impl: FirebaseLearningRepositoryImpl
     ): LearningRepository
 
     @Binds
     @Singleton
     abstract fun bindTestRepository(
-        impl: TestRepositoryImpl
+        impl: FirebaseTestRepositoryImpl
     ): TestRepository
 }
