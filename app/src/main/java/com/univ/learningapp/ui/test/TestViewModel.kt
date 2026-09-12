@@ -177,7 +177,7 @@ class TestViewModel @Inject constructor(
             val result = testRepository.getTestResult(resultId)
             result.fold(
                 onSuccess = { _resultState.value = ResultUiState.Success(it) },
-                onFailure = { _resultState.value = ResultUiState.Error("Could not load result.") }
+                onFailure = { _resultState.value = ResultUiState.Error(it.message ?: "Could not load result.") }
             )
         }
     }

@@ -1,5 +1,6 @@
 package com.univ.learningapp.domain.repository
 
+import android.net.Uri
 import com.univ.learningapp.data.model.User
 import com.univ.learningapp.data.model.UserRole
 import kotlinx.coroutines.flow.Flow
@@ -15,4 +16,13 @@ interface AuthRepository {
     // Super Admin User Management
     suspend fun getAllUsers(): Result<List<User>>
     suspend fun updateUserRole(userId: String, newRole: UserRole): Result<Boolean>
+
+    // Profile
+    suspend fun updateProfile(
+        phoneNumber: String,
+        instagramHandle: String,
+        twitterHandle: String,
+        linkedinHandle: String
+    ): Result<Boolean>
+    suspend fun uploadProfilePhoto(photoUri: Uri): Result<String>
 }

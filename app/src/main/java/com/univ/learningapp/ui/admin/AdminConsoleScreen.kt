@@ -129,7 +129,7 @@ fun AdminConsoleScreen(
             when (activeTab) {
                 0 -> UserRolesAdminManager(
                     allUsers = allUsers,
-                    isSuperAdmin = currentUser?.role == UserRole.SUPER_ADMIN || currentUser?.role == UserRole.ADMIN,
+                    currentUserRole = currentUser?.role,
                     onUpdateRole = { uid, newRole -> viewModel.updateUserRole(uid, newRole) }
                 )
                 1 -> ExamAdminManager(
@@ -324,9 +324,12 @@ fun BulkAdminManager(
 @Composable
 fun UserRolesAdminManager(
     allUsers: List<User>,
-    isSuperAdmin: Boolean,
+    currentUserRole: UserRole?,
     onUpdateRole: (String, UserRole) -> Unit
 ) {
+    val isSuperAdmin = currentUserRole == UserRole.SUPER_ADMIN
+    val isAdmin = currentUserRole == UserRole.ADMIN
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -360,6 +363,7 @@ fun UserRolesAdminManager(
             UserRoleCard(
                 user = user,
                 isSuperAdmin = isSuperAdmin,
+                isAdmin = isAdmin,
                 onUpdateRole = { newRole -> onUpdateRole(user.id, newRole) }
             )
         }
@@ -370,6 +374,7 @@ fun UserRolesAdminManager(
 fun UserRoleCard(
     user: User,
     isSuperAdmin: Boolean,
+    isAdmin: Boolean,
     onUpdateRole: (UserRole) -> Unit
 ) {
     Card(
@@ -410,7 +415,10 @@ fun UserRoleCard(
 
                     Column {
                         Text(text = user.name, fontWeight = FontWeight.Bold)
-                        Text(text = user.email, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                        // Hide email if viewer is not Super Admin
+                        if (isSuperAdmin) {
+                            Text(text = user.email, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                        }
                     }
                 }
 
@@ -438,7 +446,8 @@ fun UserRoleCard(
                 }
             }
 
-            if (isSuperAdmin && user.role != UserRole.SUPER_ADMIN) {
+            // Only Super Admins and Admins get to see action buttons
+            if ((isSuperAdmin || isAdmin) && user.role != UserRole.SUPER_ADMIN) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -456,12 +465,17 @@ fun UserRoleCard(
                             Text("Promote / Approve ADMIN", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     } else if (user.role == UserRole.ADMIN) {
-                        OutlinedButton(
-                            onClick = { onUpdateRole(UserRole.MEMBER) },
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                        ) {
-                            Text("Demote to MEMBER", fontSize = 12.sp)
+                        // Only SUPER_ADMIN can demote another ADMIN
+                        if (isSuperAdmin) {
+                            OutlinedButton(
+                                onClick = { onUpdateRole(UserRole.MEMBER) },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Text("Demote to MEMBER", fontSize = 12.sp)
+                            }
+                        } else {
+                            Text("Role managed by Super Admin", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                         }
                     }
                 }

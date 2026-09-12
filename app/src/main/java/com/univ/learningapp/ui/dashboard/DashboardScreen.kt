@@ -26,6 +26,7 @@ import com.univ.learningapp.data.model.MaterialType
 import com.univ.learningapp.data.model.PdfMaterial
 import com.univ.learningapp.data.model.UserRole
 import com.univ.learningapp.ui.history.HistoryCardItem
+import com.univ.learningapp.ui.profile.ProfileTabContent
 import com.univ.learningapp.ui.theme.SuccessGreen
 import com.univ.learningapp.ui.theme.WarningOrange
 
@@ -61,9 +62,9 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
-                    // Admin Console Button (Visible if ADMIN role)
+                    // Admin Console Button (Visible if ADMIN or SUPER_ADMIN role)
                     val currentUser = (uiState as? DashboardUiState.Success)?.user
-                    if (currentUser?.role == UserRole.ADMIN) {
+                    if (currentUser?.role == UserRole.ADMIN || currentUser?.role == UserRole.SUPER_ADMIN) {
                         IconButton(onClick = onNavigateToAdminConsole) {
                             Icon(
                                 imageVector = Icons.Default.AdminPanelSettings,
@@ -130,33 +131,35 @@ fun DashboardScreen(
                             onOpenAdminConsole = onNavigateToAdminConsole
                         )
 
-                        // Live Search Bar
-                        OutlinedTextField(
-                            value = state.searchQuery,
-                            onValueChange = { viewModel.updateSearchQuery(it) },
-                            placeholder = {
-                                Text(
-                                    text = when (state.activeTabIndex) {
-                                        0 -> "Search 50-MCQ mock tests, PYQs..."
-                                        1 -> "Search PDFs, study notes, videos..."
-                                        else -> "Search past test history..."
+                        // Live Search Bar (not applicable to the Profile tab)
+                        if (state.activeTabIndex != 3) {
+                            OutlinedTextField(
+                                value = state.searchQuery,
+                                onValueChange = { viewModel.updateSearchQuery(it) },
+                                placeholder = {
+                                    Text(
+                                        text = when (state.activeTabIndex) {
+                                            0 -> "Search 50-MCQ mock tests, PYQs..."
+                                            1 -> "Search PDFs, study notes, videos..."
+                                            else -> "Search past test history..."
+                                        }
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                                trailingIcon = {
+                                    if (state.searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                        }
                                     }
-                                )
-                            },
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                            trailingIcon = {
-                                if (state.searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                                        Icon(Icons.Default.Clear, contentDescription = "Clear")
-                                    }
-                                }
-                            },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
+                                },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
 
                         // 3 Primary Tabs
                         TabRow(selectedTabIndex = state.activeTabIndex) {
@@ -193,10 +196,21 @@ fun DashboardScreen(
                                     }
                                 }
                             )
+                            Tab(
+                                selected = state.activeTabIndex == 3,
+                                onClick = { viewModel.selectTab(3) },
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Profile", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            )
                         }
 
-                        // Filter Chips Bar
-                        if (state.activeTabIndex != 2) {
+                        // Filter Chips Bar (only relevant for Mock Tests / PDFs tabs)
+                        if (state.activeTabIndex == 0 || state.activeTabIndex == 1) {
                             ScrollableTabRow(
                                 selectedTabIndex = state.activeFilter.ordinal,
                                 edgePadding = 16.dp,
@@ -285,7 +299,7 @@ fun DashboardScreen(
                                         )
                                     }
                                 }
-                            } else {
+                            } else if (state.activeTabIndex == 2) {
                                 val filteredHistory = state.historyList.filter {
                                     it.examTitle.contains(state.searchQuery, ignoreCase = true)
                                 }
@@ -326,6 +340,10 @@ fun DashboardScreen(
                                             onViewScorecard = { onViewScorecard(item.resultId) }
                                         )
                                     }
+                                }
+                            } else {
+                                item {
+                                    ProfileTabContent()
                                 }
                             }
                         }
@@ -446,7 +464,7 @@ fun UserWelcomeHeader(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(if (role == UserRole.ADMIN) WarningOrange else MaterialTheme.colorScheme.primary),
+                        .background(if (role == UserRole.ADMIN || role == UserRole.SUPER_ADMIN) WarningOrange else MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -467,14 +485,14 @@ fun UserWelcomeHeader(
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        if (role == UserRole.ADMIN) {
+                        if (role == UserRole.ADMIN || role == UserRole.SUPER_ADMIN) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Surface(
                                 color = WarningOrange.copy(alpha = 0.2f),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
-                                    text = "ADMIN",
+                                    text = if (role == UserRole.SUPER_ADMIN) "SUPER ADMIN" else "ADMIN",
                                     color = WarningOrange,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 10.sp,
@@ -491,7 +509,7 @@ fun UserWelcomeHeader(
                 }
             }
 
-            if (role == UserRole.ADMIN) {
+            if (role == UserRole.ADMIN || role == UserRole.SUPER_ADMIN) {
                 Button(
                     onClick = onOpenAdminConsole,
                     colors = ButtonDefaults.buttonColors(containerColor = WarningOrange),

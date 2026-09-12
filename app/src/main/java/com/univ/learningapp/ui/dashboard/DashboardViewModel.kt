@@ -29,7 +29,7 @@ sealed class DashboardUiState {
         val pdfs: List<PdfMaterial>,
         val exams: List<ExamInfo>,
         val historyList: List<TestHistoryItem> = emptyList(),
-        val activeTabIndex: Int = 0, // 0: Mock Tests (50 MCQs), 1: PDFs/Videos, 2: History
+        val activeTabIndex: Int = 0, // 0: Mock Tests, 1: PDFs/Videos, 2: History, 3: Profile
         val searchQuery: String = "",
         val activeFilter: ContentFilter = ContentFilter.ALL
     ) : DashboardUiState()
