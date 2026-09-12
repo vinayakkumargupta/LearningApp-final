@@ -1,0 +1,152 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Materials</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>LearningApp Content Manager</h1>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="exams.html">Exams &amp; Questions</a>
+      <a href="bulk.html">Bulk Import</a>
+      <a href="materials.html" class="active">Materials</a>
+      <a href="users.html">Users</a>
+    </nav>
+  </header>
+  <main>
+    <div class="card">
+      <h2>Add a Material</h2>
+      <div class="grid">
+        <div>
+          <label>Material ID (Firestore document ID, e.g. pdf_5)</label>
+          <input id="matId" placeholder="pdf_5" />
+        </div>
+        <div>
+          <label>Title</label>
+          <input id="matTitle" placeholder="Operating Systems Notes" />
+        </div>
+        <div>
+          <label>Subject</label>
+          <input id="matSubject" placeholder="Computer Science" />
+        </div>
+        <div>
+          <label>Category</label>
+          <input id="matCategory" placeholder="Core CS" />
+        </div>
+        <div>
+          <label>Type</label>
+          <select id="matType" onchange="toggleType()">
+            <option value="PDF">PDF</option>
+            <option value="VIDEO">Video</option>
+          </select>
+        </div>
+        <div>
+          <label>Price in INR (0 = free/unlocked)</label>
+          <input id="matPrice" type="number" value="0" />
+        </div>
+      </div>
+
+      <div id="pdfFields">
+        <label>PDF File</label>
+        <input id="matFile" type="file" accept="application/pdf" />
+        <label>Pages count (optional)</label>
+        <input id="matPages" type="number" value="0" />
+      </div>
+
+      <div id="videoFields" style="display:none;">
+        <label>Video URL</label>
+        <input id="matVideoUrl" placeholder="https://..." />
+        <label>Video Duration (e.g. 45 Mins)</label>
+        <input id="matVideoDuration" placeholder="45 Mins" />
+      </div>
+
+      <label>Description</label>
+      <textarea id="matDescription"></textarea>
+
+      <button type="button" onclick="submitMaterial()">Save Material</button>
+      <div id="matMsg" class="msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>Existing Materials</h2>
+      <table id="materialsTable">
+        <thead><tr><th>ID</th><th>Title</th><th>Type</th><th>Price</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    function toggleType() {
+      const isVideo = document.getElementById('matType').value === 'VIDEO';
+      document.getElementById('pdfFields').style.display = isVideo ? 'none' : 'block';
+      document.getElementById('videoFields').style.display = isVideo ? 'block' : 'none';
+    }
+
+    async function submitMaterial() {
+      const msg = document.getElementById('matMsg');
+      msg.textContent = '';
+      const type = document.getElementById('matType').value;
+
+      const form = new FormData();
+      form.append('id', document.getElementById('matId').value.trim());
+      form.append('title', document.getElementById('matTitle').value.trim());
+      form.append('subject', document.getElementById('matSubject').value.trim());
+      form.append('category', document.getElementById('matCategory').value.trim());
+      form.append('materialType', type);
+      form.append('priceInInr', document.getElementById('matPrice').value);
+      form.append('description', document.getElementById('matDescription').value.trim());
+
+      if (type === 'VIDEO') {
+        form.append('videoUrl', document.getElementById('matVideoUrl').value.trim());
+        form.append('videoDuration', document.getElementById('matVideoDuration').value.trim());
+      } else {
+        form.append('pagesCount', document.getElementById('matPages').value);
+        const fileInput = document.getElementById('matFile');
+        if (fileInput.files[0]) form.append('file', fileInput.files[0]);
+      }
+
+      try {
+        const res = await fetch('/api/materials', { method: 'POST', body: form });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unknown error');
+        msg.textContent = `Saved "${data.id}".` + (data.pdfUrl ? ` File URL: ${data.pdfUrl}` : '');
+        msg.className = 'msg ok';
+        loadMaterials();
+      } catch (err) {
+        msg.textContent = 'Error: ' + err.message;
+        msg.className = 'msg err';
+      }
+    }
+
+    async function loadMaterials() {
+      const res = await fetch('/api/materials');
+      const items = await res.json();
+      const tbody = document.querySelector('#materialsTable tbody');
+      tbody.innerHTML = '';
+      items.forEach((m) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${m.id}</td>
+          <td>${m.title}</td>
+          <td><span class="pill">${m.materialType}</span></td>
+          <td>${m.priceInInr > 0 ? '₹' + m.priceInInr : 'Free'}</td>
+          <td><button class="danger" onclick="deleteMaterial('${m.id}')">Delete</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function deleteMaterial(id) {
+      if (!confirm('Delete material ' + id + '?')) return;
+      await fetch('/api/materials/' + id, { method: 'DELETE' });
+      loadMaterials();
+    }
+
+    loadMaterials();
+  </script>
+</body>
+</html>

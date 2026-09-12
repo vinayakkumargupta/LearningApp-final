@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Users &amp; Admin Approvals</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>LearningApp Content Manager</h1>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="exams.html">Exams &amp; Questions</a>
+      <a href="bulk.html">Bulk Import</a>
+      <a href="materials.html">Materials</a>
+      <a href="users.html" class="active">Users</a>
+    </nav>
+  </header>
+  <main>
+    <div class="card">
+      <h2>Pending Admin Requests</h2>
+      <p class="hint">These signed up with "Request Admin Access" checked. Approve to grant admin, or reject to leave them as a normal user.</p>
+      <table id="pendingTable">
+        <thead><tr><th>Name</th><th>Email</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="noPending" class="hint" style="display:none;">No pending requests.</p>
+    </div>
+
+    <div class="card">
+      <h2>All Users</h2>
+      <table id="allUsersTable">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    async function loadUsers() {
+      const res = await fetch('/api/users');
+      const users = await res.json();
+
+      const pendingBody = document.querySelector('#pendingTable tbody');
+      const allBody = document.querySelector('#allUsersTable tbody');
+      pendingBody.innerHTML = '';
+      allBody.innerHTML = '';
+
+      const pending = users.filter((u) => u.role === 'PENDING_ADMIN');
+      document.getElementById('noPending').style.display = pending.length ? 'none' : 'block';
+
+      pending.forEach((u) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${u.name || ''}</td>
+          <td>${u.email || ''}</td>
+          <td>
+            <button onclick="setRole('${u.id}', 'ADMIN')">Approve</button>
+            <button class="secondary" onclick="setRole('${u.id}', 'MEMBER')">Reject</button>
+          </td>
+        `;
+        pendingBody.appendChild(tr);
+      });
+
+      users.forEach((u) => {
+        const tr = document.createElement('tr');
+        const roleColor = u.role === 'ADMIN' ? '#1b8a3d' : u.role === 'PENDING_ADMIN' ? '#b8860b' : '#555';
+        tr.innerHTML = `
+          <td>${u.name || ''}</td>
+          <td>${u.email || ''}</td>
+          <td><span class="pill" style="color:${roleColor}">${u.role || 'MEMBER'}</span></td>
+          <td>
+            ${u.role !== 'ADMIN' ? `<button onclick="setRole('${u.id}', 'ADMIN')">Make Admin</button>` : ''}
+            ${u.role !== 'MEMBER' ? `<button class="secondary" onclick="setRole('${u.id}', 'MEMBER')">Make Normal User</button>` : ''}
+          </td>
+        `;
+        allBody.appendChild(tr);
+      });
+    }
+
+    async function setRole(uid, role) {
+      await fetch('/api/users/' + uid + '/role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role })
+      });
+      loadUsers();
+    }
+
+    loadUsers();
+  </script>
+</body>
+</html>

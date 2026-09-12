@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// Security rules for the LearningApp Firebase Storage bucket.
+// Deploy: Firebase Console -> Storage -> Rules -> Publish
+// (or `firebase deploy --only storage` with the Firebase CLI).
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Profile photos are stored at profile_photos/{uid}.jpg. Anyone signed
+    // in can view avatars, but a user can only ever overwrite their own.
+    match /profile_photos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && fileName == request.auth.uid + '.jpg'
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Study materials are uploaded exclusively by the admin-panel Node tool,
+    // which uses the Admin SDK / service account and bypasses these rules.
+    // Clients only ever read them.
+    match /materials/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

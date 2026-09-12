@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Exams &amp; Questions</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>LearningApp Content Manager</h1>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="exams.html" class="active">Exams &amp; Questions</a>
+      <a href="bulk.html">Bulk Import</a>
+      <a href="materials.html">Materials</a>
+      <a href="users.html">Users</a>
+    </nav>
+  </header>
+  <main>
+    <div class="card">
+      <h2>Create / Overwrite an Exam</h2>
+      <p class="hint">Using an existing exam ID replaces its whole question list — handy for fixing typos.</p>
+      <div class="grid">
+        <div>
+          <label>Exam ID (used as the Firestore document ID, e.g. exam_mock_51_cs)</label>
+          <input id="examId" placeholder="exam_mock_51_cs" />
+        </div>
+        <div>
+          <label>Title</label>
+          <input id="examTitle" placeholder="All India Mock Test 5" />
+        </div>
+        <div>
+          <label>Subject</label>
+          <input id="examSubject" placeholder="CS & General Aptitude" />
+        </div>
+        <div>
+          <label>Category</label>
+          <select id="examCategory">
+            <option>MCQ Mock Test</option>
+            <option>PYQ</option>
+          </select>
+        </div>
+        <div>
+          <label>Duration (minutes)</label>
+          <input id="examDuration" type="number" value="60" />
+        </div>
+        <div>
+          <label>Total Marks</label>
+          <input id="examTotalMarks" type="number" placeholder="auto: questions x 4" />
+        </div>
+        <div>
+          <label>Passing Marks</label>
+          <input id="examPassingMarks" type="number" value="80" />
+        </div>
+        <div>
+          <label>Price in INR (0 = free/unlocked)</label>
+          <input id="examPrice" type="number" value="0" />
+        </div>
+      </div>
+
+      <h2>Questions</h2>
+      <div id="questionsContainer"></div>
+      <button type="button" class="secondary" onclick="addQuestion()">+ Add Question</button>
+      <br /><br />
+      <button type="button" onclick="submitExam()">Save Exam</button>
+      <div id="examMsg" class="msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>Existing Exams</h2>
+      <table id="examsTable">
+        <thead><tr><th>ID</th><th>Title</th><th>Category</th><th>Questions</th><th>Price</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    let questionCount = 0;
+
+    function addQuestion(prefill) {
+      questionCount++;
+      const idx = questionCount;
+      const div = document.createElement('div');
+      div.className = 'question-block';
+      div.id = 'q-' + idx;
+      const p = prefill || { questionText: '', options: ['', '', '', ''], correctOptionIndex: 0, explanation: '', subject: '' };
+      div.innerHTML = `
+        <div class="row-head">
+          <strong>Question ${idx}</strong>
+          <button type="button" class="danger" onclick="document.getElementById('q-${idx}').remove()">Remove</button>
+        </div>
+        <label>Question text</label>
+        <textarea class="q-text">${p.questionText}</textarea>
+        <div class="grid">
+          <div><label>Option A</label><input class="q-opt" value="${p.options[0] || ''}" /></div>
+          <div><label>Option B</label><input class="q-opt" value="${p.options[1] || ''}" /></div>
+          <div><label>Option C</label><input class="q-opt" value="${p.options[2] || ''}" /></div>
+          <div><label>Option D</label><input class="q-opt" value="${p.options[3] || ''}" /></div>
+        </div>
+        <label>Correct option</label>
+        <select class="q-correct">
+          <option value="0" ${p.correctOptionIndex === 0 ? 'selected' : ''}>A</option>
+          <option value="1" ${p.correctOptionIndex === 1 ? 'selected' : ''}>B</option>
+          <option value="2" ${p.correctOptionIndex === 2 ? 'selected' : ''}>C</option>
+          <option value="3" ${p.correctOptionIndex === 3 ? 'selected' : ''}>D</option>
+        </select>
+        <label>Explanation</label>
+        <textarea class="q-explain">${p.explanation}</textarea>
+        <label>Topic / subject tag (optional, defaults to exam subject)</label>
+        <input class="q-subject" value="${p.subject}" />
+      `;
+      document.getElementById('questionsContainer').appendChild(div);
+    }
+
+    function collectQuestions() {
+      return Array.from(document.querySelectorAll('.question-block')).map((block) => ({
+        questionText: block.querySelector('.q-text').value.trim(),
+        options: Array.from(block.querySelectorAll('.q-opt')).map((i) => i.value.trim()),
+        correctOptionIndex: Number(block.querySelector('.q-correct').value),
+        explanation: block.querySelector('.q-explain').value.trim(),
+        subject: block.querySelector('.q-subject').value.trim()
+      }));
+    }
+
+    async function submitExam() {
+      const msg = document.getElementById('examMsg');
+      msg.textContent = '';
+      const payload = {
+        id: document.getElementById('examId').value.trim(),
+        title: document.getElementById('examTitle').value.trim(),
+        subject: document.getElementById('examSubject').value.trim(),
+        examCategory: document.getElementById('examCategory').value,
+        durationMinutes: document.getElementById('examDuration').value,
+        totalMarks: document.getElementById('examTotalMarks').value,
+        passingMarks: document.getElementById('examPassingMarks').value,
+        priceInInr: document.getElementById('examPrice').value,
+        questions: collectQuestions()
+      };
+      try {
+        const res = await fetch('/api/exams', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unknown error');
+        msg.textContent = `Saved "${payload.id}" with ${payload.questions.length} questions.`;
+        msg.className = 'msg ok';
+        loadExams();
+      } catch (err) {
+        msg.textContent = 'Error: ' + err.message;
+        msg.className = 'msg err';
+      }
+    }
+
+    async function loadExams() {
+      const res = await fetch('/api/exams');
+      const exams = await res.json();
+      const tbody = document.querySelector('#examsTable tbody');
+      tbody.innerHTML = '';
+      exams.forEach((e) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${e.id}</td>
+          <td>${e.title}</td>
+          <td><span class="pill">${e.examCategory}</span></td>
+          <td>${e.questionCount}</td>
+          <td>${e.priceInInr > 0 ? '₹' + e.priceInInr : 'Free'}</td>
+          <td><button class="danger" onclick="deleteExam('${e.id}')">Delete</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function deleteExam(id) {
+      if (!confirm('Delete exam ' + id + ' and all its questions?')) return;
+      await fetch('/api/exams/' + id, { method: 'DELETE' });
+      loadExams();
+    }
+
+    addQuestion();
+    loadExams();
+  </script>
+</body>
+</html>

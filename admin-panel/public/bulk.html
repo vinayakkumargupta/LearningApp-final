@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Bulk Import</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>LearningApp Content Manager</h1>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="exams.html">Exams &amp; Questions</a>
+      <a href="bulk.html" class="active">Bulk Import</a>
+      <a href="materials.html">Materials</a>
+      <a href="users.html">Users</a>
+    </nav>
+  </header>
+  <main>
+    <div class="card">
+      <h2>Bulk Import Exams &amp; Questions from JSON</h2>
+      <p>Paste a single exam object, or an array of exam objects, matching the schema below. Uploading with an Exam ID that already exists replaces its whole question list.</p>
+      <p class="hint">Ask Claude to turn a question paper (PDF, notes, whatever) into JSON in exactly this shape, then paste the result here.</p>
+      <textarea id="jsonInput" rows="16" style="font-family: monospace; font-size: 13px;" placeholder="Paste JSON here..."></textarea>
+      <button type="button" class="secondary" onclick="showSchema()">Show Expected Schema</button>
+      <button type="button" onclick="validateJson()">Validate</button>
+      <button type="button" onclick="uploadJson()">Upload All</button>
+      <div id="bulkMsg" class="msg"></div>
+      <div id="bulkResults"></div>
+    </div>
+
+    <div class="card" id="schemaCard" style="display:none;">
+      <h2>Expected JSON Schema</h2>
+      <pre style="white-space: pre-wrap; background:#fafafe; padding:12px; border-radius:8px; font-size:13px;">[
+  {
+    "id": "exam_mock_51_cs",
+    "title": "All India Mock Test 5",
+    "subject": "Computer Science",
+    "examCategory": "MCQ Mock Test",
+    "durationMinutes": 60,
+    "totalMarks": 200,
+    "passingMarks": 80,
+    "priceInInr": 0,
+    "questions": [
+      {
+        "questionText": "Which keyword in Kotlin declares a read-only variable?",
+        "options": ["var", "val", "const var", "final var"],
+        "correctOptionIndex": 1,
+        "explanation": "'val' creates a read-only variable in Kotlin.",
+        "subject": "Kotlin Programming"
+      }
+    ]
+  }
+]</pre>
+      <p class="hint">
+        <strong>id</strong> becomes the Firestore document ID (letters/numbers/underscores, no spaces).<br />
+        <strong>examCategory</strong> is either "MCQ Mock Test" or "PYQ".<br />
+        <strong>correctOptionIndex</strong> is 0-based (0 = first option).<br />
+        <strong>subject</strong> inside a question is optional (falls back to the exam's subject).<br />
+        You can paste a single exam object (not wrapped in an array) too.
+      </p>
+    </div>
+  </main>
+
+  <script>
+    function showSchema() {
+      const card = document.getElementById('schemaCard');
+      card.style.display = card.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function parseInput() {
+      const raw = document.getElementById('jsonInput').value.trim();
+      if (!raw) throw new Error('Paste some JSON first.');
+      const parsed = JSON.parse(raw);
+      const exams = Array.isArray(parsed) ? parsed : [parsed];
+      if (exams.length === 0) throw new Error('No exams found in the JSON.');
+      return exams;
+    }
+
+    function validateJson() {
+      const msg = document.getElementById('bulkMsg');
+      document.getElementById('bulkResults').innerHTML = '';
+      try {
+        const exams = parseInput();
+        const lines = exams.map((e, i) => {
+          const qCount = Array.isArray(e.questions) ? e.questions.length : 0;
+          const problems = [];
+          if (!e.id) problems.push('missing id');
+          if (!e.title) problems.push('missing title');
+          if (qCount === 0) problems.push('no questions');
+          const status = problems.length ? `⚠ ${problems.join(', ')}` : '✓ looks good';
+          return `Exam ${i + 1} (${e.id || 'no id'}): ${qCount} questions — ${status}`;
+        });
+        msg.className = 'msg ok';
+        msg.textContent = `Parsed ${exams.length} exam(s) successfully. Review below, then click "Upload All".`;
+        document.getElementById('bulkResults').innerHTML =
+          '<ul>' + lines.map((l) => `<li>${l}</li>`).join('') + '</ul>';
+      } catch (err) {
+        msg.className = 'msg err';
+        msg.textContent = 'JSON error: ' + err.message;
+      }
+    }
+
+    async function uploadJson() {
+      const msg = document.getElementById('bulkMsg');
+      const resultsDiv = document.getElementById('bulkResults');
+      resultsDiv.innerHTML = '';
+      let exams;
+      try {
+        exams = parseInput();
+      } catch (err) {
+        msg.className = 'msg err';
+        msg.textContent = 'JSON error: ' + err.message;
+        return;
+      }
+
+      msg.className = 'msg';
+      msg.textContent = 'Uploading...';
+      try {
+        const res = await fetch('/api/exams/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(exams)
+        });
+        const data = await res.json();
+        const successCount = data.results.filter((r) => r.ok).length;
+        msg.className = successCount === data.results.length ? 'msg ok' : 'msg err';
+        msg.textContent = `${successCount}/${data.results.length} exam(s) uploaded successfully.`;
+        resultsDiv.innerHTML = '<ul>' + data.results.map((r) =>
+          r.ok
+            ? `<li>✓ ${r.id} — ${r.questionCount} questions saved</li>`
+            : `<li>✗ ${r.id || '(no id)'} — ${r.error}</li>`
+        ).join('') + '</ul>';
+      } catch (err) {
+        msg.className = 'msg err';
+        msg.textContent = 'Upload failed: ' + err.message;
+      }
+    }
+  </script>
+</body>
+</html>

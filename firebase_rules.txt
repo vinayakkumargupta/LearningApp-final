@@ -1,0 +1,110 @@
+=====================================================================
+FIRESTORE RULES
+Paste into: Firebase Console -> Firestore Database -> Rules -> Publish
+=====================================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Function to check if the user making the request is an Admin
+    function isAdmin() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+
+    // Function to check if the user making the request is a Super Admin
+    function isSuperAdmin() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN';
+    }
+
+    match /users/{userId} {
+      // Only the owner, or an ADMIN/SUPER_ADMIN managing roles, may read a
+      // profile - this is what keeps emails away from plain MEMBERs and
+      // (per the app's own masking) away from ADMINs too.
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isSuperAdmin());
+
+      // Signup: a brand-new user may only create their OWN doc, and can never
+      // self-assign ADMIN/SUPER_ADMIN on creation. `resource` doesn't exist
+      // yet during create, so this rule must never touch `resource.data`.
+      allow create: if isSignedIn() && request.auth.uid == userId &&
+        request.resource.data.role in ['MEMBER', 'PENDING_ADMIN'];
+
+      allow update: if isSignedIn() && (
+        // 1. A user can update their own profile (but they can't change their own role)
+        (request.auth.uid == userId && (
+           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) ||
+           request.resource.data.role == resource.data.role
+        )) ||
+        // 2. Super Admins can do anything
+        isSuperAdmin() ||
+        // 3. Regular Admins can edit users, but cannot touch other Admins/Super Admins,
+        //    and cannot promote anyone to Super Admin.
+        (isAdmin() &&
+         resource.data.role != 'ADMIN' &&
+         resource.data.role != 'SUPER_ADMIN' &&
+         request.resource.data.role != 'SUPER_ADMIN'
+        )
+      );
+
+      allow delete: if isSuperAdmin();
+    }
+
+    match /test_series/{document=**} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isSuperAdmin();
+    }
+
+    match /materials/{document=**} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isSuperAdmin();
+    }
+
+    // A test submission belongs to exactly one user. Only that user, or an
+    // ADMIN/SUPER_ADMIN, may ever read or modify it - this is what stops one
+    // student from viewing or tampering with another student's score/history.
+    match /submissions/{resultId} {
+      allow read: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin() || isSuperAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin() || isSuperAdmin();
+    }
+  }
+}
+
+
+=====================================================================
+STORAGE RULES
+Paste into: Firebase Console -> Storage -> Rules -> Publish
+=====================================================================
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Profile photos are stored at profile_photos/{uid}.jpg. Anyone signed
+    // in can view avatars, but a user can only ever overwrite their own.
+    match /profile_photos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && fileName == request.auth.uid + '.jpg'
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Study materials are uploaded exclusively by the admin-panel Node tool,
+    // which uses the Admin SDK / service account and bypasses these rules.
+    // Clients only ever read them.
+    match /materials/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
