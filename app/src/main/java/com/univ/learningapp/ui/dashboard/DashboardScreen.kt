@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.univ.learningapp.data.model.ExamInfo
 import com.univ.learningapp.data.model.MaterialType
 import com.univ.learningapp.data.model.PdfMaterial
+import com.univ.learningapp.data.model.UserRole
 import com.univ.learningapp.ui.history.HistoryCardItem
 import com.univ.learningapp.ui.theme.SuccessGreen
 import com.univ.learningapp.ui.theme.WarningOrange
@@ -34,6 +35,7 @@ fun DashboardScreen(
     viewModel: DashboardViewModel,
     onStartTest: (examId: String, examTitle: String) -> Unit,
     onNavigateToHistory: () -> Unit,
+    onNavigateToAdminConsole: () -> Unit = {},
     onViewScorecard: (resultId: String) -> Unit = {},
     onLogout: () -> Unit
 ) {
@@ -59,6 +61,18 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
+                    // Admin Console Button (Visible if ADMIN role)
+                    val currentUser = (uiState as? DashboardUiState.Success)?.user
+                    if (currentUser?.role == UserRole.ADMIN) {
+                        IconButton(onClick = onNavigateToAdminConsole) {
+                            Icon(
+                                imageVector = Icons.Default.AdminPanelSettings,
+                                contentDescription = "Admin Console",
+                                tint = WarningOrange
+                            )
+                        }
+                    }
+
                     // History Action Button
                     IconButton(onClick = onNavigateToHistory) {
                         Icon(
@@ -110,7 +124,11 @@ fun DashboardScreen(
                 is DashboardUiState.Success -> {
                     Column(modifier = Modifier.fillMaxSize()) {
                         // User Welcome Header Card
-                        UserWelcomeHeader(userName = state.user?.name ?: "Learner Student")
+                        UserWelcomeHeader(
+                            userName = state.user?.name ?: "Learner Student",
+                            role = state.user?.role ?: UserRole.MEMBER,
+                            onOpenAdminConsole = onNavigateToAdminConsole
+                        )
 
                         // Live Search Bar
                         OutlinedTextField(
@@ -140,10 +158,7 @@ fun DashboardScreen(
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         )
 
-                        // 3 Primary Tabs:
-                        // Tab 0: 📝 Mock Tests (50 MCQs & PYQs)
-                        // Tab 1: 📚 Study Notes & Videos
-                        // Tab 2: 📊 Test History
+                        // 3 Primary Tabs
                         TabRow(selectedTabIndex = state.activeTabIndex) {
                             Tab(
                                 selected = state.activeTabIndex == 0,
@@ -180,7 +195,7 @@ fun DashboardScreen(
                             )
                         }
 
-                        // Filter Chips Bar (All, Free, Premium/Locked, Completed)
+                        // Filter Chips Bar
                         if (state.activeTabIndex != 2) {
                             ScrollableTabRow(
                                 selectedTabIndex = state.activeFilter.ordinal,
@@ -210,7 +225,6 @@ fun DashboardScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             if (state.activeTabIndex == 0) {
-                                // MOCK TESTS & PYQS DASHBOARD (Tab 0)
                                 item {
                                     MockEngineBannerCard()
                                 }
@@ -243,7 +257,6 @@ fun DashboardScreen(
                                     }
                                 }
                             } else if (state.activeTabIndex == 1) {
-                                // PDFS & VIDEO LECTURES DASHBOARD (Tab 1)
                                 val filteredMaterials = state.pdfs.filter { mat ->
                                     val matchesQuery = mat.title.contains(state.searchQuery, ignoreCase = true) ||
                                             mat.subject.contains(state.searchQuery, ignoreCase = true) ||
@@ -273,7 +286,6 @@ fun DashboardScreen(
                                     }
                                 }
                             } else {
-                                // TEST HISTORY DASHBOARD (Tab 2)
                                 val filteredHistory = state.historyList.filter {
                                     it.examTitle.contains(state.searchQuery, ignoreCase = true)
                                 }
@@ -412,6 +424,90 @@ fun DashboardScreen(
 }
 
 @Composable
+fun UserWelcomeHeader(
+    userName: String,
+    role: UserRole = UserRole.MEMBER,
+    onOpenAdminConsole: () -> Unit = {}
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(if (role == UserRole.ADMIN) WarningOrange else MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = userName.take(1).uppercase(),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Hello, $userName 👋",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (role == UserRole.ADMIN) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                color = WarningOrange.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "ADMIN",
+                                    color = WarningOrange,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = "Pick a 50-MCQ Test, PYQ Paper, or Study Note",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+            }
+
+            if (role == UserRole.ADMIN) {
+                Button(
+                    onClick = onOpenAdminConsole,
+                    colors = ButtonDefaults.buttonColors(containerColor = WarningOrange),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.AdminPanelSettings, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Admin ⚙️", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun MockEngineBannerCard() {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -435,50 +531,6 @@ fun MockEngineBannerCard() {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
             )
-        }
-    }
-}
-
-@Composable
-fun UserWelcomeHeader(userName: String) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = userName.take(1).uppercase(),
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column {
-                Text(
-                    text = "Hello, $userName 👋",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Pick a 50-MCQ Test, PYQ Paper, or Study Note",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-            }
         }
     }
 }

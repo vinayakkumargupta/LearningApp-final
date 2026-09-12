@@ -1,8 +1,16 @@
 package com.univ.learningapp.data.model
 
+enum class UserRole {
+    MEMBER,
+    PENDING_ADMIN,
+    ADMIN,
+    SUPER_ADMIN
+}
+
 data class User(
-    val id: String = "user_101",
-    val name: String,
-    val email: String,
-    val token: String? = "mock_jwt_token_12345"
+    val id: String = "",
+    val name: String = "",
+    val email: String = "",
+    val role: UserRole = UserRole.MEMBER,
+    val token: String? = null
 )

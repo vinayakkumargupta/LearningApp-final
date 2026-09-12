@@ -38,14 +38,14 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun signup(name: String, email: String, pass: String, confirmPass: String) {
+    fun signup(name: String, email: String, pass: String, confirmPass: String, requestAdminAccess: Boolean = false) {
         viewModelScope.launch {
             if (pass != confirmPass) {
                 _uiState.value = AuthUiState.Error("Passwords do not match.")
                 return@launch
             }
             _uiState.value = AuthUiState.Loading
-            val result = authRepository.signup(name, email, pass)
+            val result = authRepository.signup(name, email, pass, requestAdminAccess)
             _uiState.value = result.fold(
                 onSuccess = { AuthUiState.Success(it) },
                 onFailure = { AuthUiState.Error(it.message ?: "Signup failed. Please try again.") }

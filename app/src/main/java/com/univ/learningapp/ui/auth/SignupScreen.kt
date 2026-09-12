@@ -39,6 +39,7 @@ fun SignupScreen(
 
     var isPasswordVisible by remember { mutableStateOf(false) }
     var isConfirmPasswordVisible by remember { mutableStateOf(false) }
+    var requestAdminAccess by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState) {
         if (uiState is AuthUiState.Success) {
@@ -170,10 +171,34 @@ fun SignupScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Checkbox(
+                    checked = requestAdminAccess,
+                    onCheckedChange = { requestAdminAccess = it }
+                )
+                Column {
+                    Text(
+                        text = "Request Admin Access",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Subject to manual approval. You'll sign in as a normal user until approved.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             Button(
-                onClick = { viewModel.signup(fullName, email, password, confirmPassword) },
+                onClick = { viewModel.signup(fullName, email, password, confirmPassword, requestAdminAccess) },
                 enabled = uiState !is AuthUiState.Loading,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier

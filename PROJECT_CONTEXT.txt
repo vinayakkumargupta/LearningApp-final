@@ -4,26 +4,30 @@ LEARNING APP — ANDROID PROJECT CONTEXT, VISION & ARCHITECTURE GUIDE
 
 1. PROJECT VISION & OVERVIEW
 --------------------------------------------------------------------------------
-LearningApp is a modern, scalable Android mobile application designed for students
-and competitive exam candidates. The app provides:
-- Authentication (Login, Signup, Forgot Password).
-- Tabbed Dashboard (2 Tabs):
-  - Tab 1: Questions & PYQs (50-MCQ Mock Tests, Previous Year Papers with lock/unlock status).
-  - Tab 2: Study Notes & Videos (PDF Notes & Video Lectures with preview and lock/unlock status).
-- Search & Filter Controls:
-  - Real-time search bar filtering content based on active tab.
-  - Bottom filter bar chips (All, Free Access, Locked / Premium, Completed).
-- Lock & Payment System:
-  - Content items display "Locked 🔒" badges and price tags.
-  - Simulated payment unlock pass flow that instantly unlocks content for the student.
-- Test History & Performance Log:
-  - Top Bar History Button on Dashboard to view all past test attempts.
-  - Scorecard display featuring score, All India Rank #, Percentile %, Accuracy %,
-    and a button to re-review solutions for any past test attempt.
-- Full-Length 50-MCQ Mock Test Engine featuring a 60-minute countdown timer,
-  interactive 1-50 question palette, answer bookmarking, automated scoring,
-  All India Rank calculation, percentile analytics, and detailed step-by-step
-  question solution reviews.
+LearningApp is a modern, scalable Android mobile application designed for students,
+competitive exam candidates, and content managers/teachers. The app provides:
+
+- Real Firebase Authentication (Login, Signup, Password Reset Email, Auth Listener).
+- Role-Based Access Control (RBAC):
+  - MEMBER Role: Access to student dashboard, mock tests, PDFs, videos, test attempts, scorecards.
+  - PENDING_ADMIN Role: Student who requested admin access, awaiting approval.
+  - ADMIN Role: Content Admin (can create/edit exams, questions, study materials).
+  - SUPER_ADMIN Role: Super Admin / App Owner (unrestricted control, user approvals, role promotion/demotion, bulk import, content management).
+- Tabbed Dashboard (3 Tabs):
+  - Tab 0: Questions & PYQs (50-MCQ Mock Tests, Previous Year Papers with lock/unlock status).
+  - Tab 1: Study Notes & Videos (PDF Notes & Video Lectures with preview and lock/unlock status).
+  - Tab 2: Attempt History (All past test scores, ranks, percentiles, solution review links).
+- In-App Admin Content Console (admin_console):
+  - Tab 0 (User Roles): Approve pending admins, promote/demote user roles.
+  - Tab 1 (Exams & Qs): Create / Overwrite Exam Series with custom questions, options A-D, correct answer index, explanations.
+  - Tab 2 (PDFs & Videos): Create / Manage Study PDFs & Video Lectures with pricing.
+  - Tab 3 (Bulk JSON Import): Bulk import multiple exam series and question banks from JSON directly into Firestore!
+- Real-Time All India Rank & Percentile Engine:
+  - Queries real student submissions in Firestore (`submissions` collection) for the exam.
+  - Calculates exact student rank based on marks obtained vs other real students.
+  - Computes exact percentile: ((Total Submissions - Rank + 1) / Total Submissions) * 100.
+- Solution & Review Mode:
+  - Reconstructs exact user answers vs correct options with step-by-step explanations.
 
 --------------------------------------------------------------------------------
 2. TECH STACK & DEPENDENCIES
@@ -31,8 +35,7 @@ and competitive exam candidates. The app provides:
 - Language: Kotlin 2.0+
 - UI Framework: Jetpack Compose with Material 3 & Navigation Compose
 - Dependency Injection: Dagger Hilt 2.60.1 (@HiltAndroidApp, @AndroidEntryPoint, @HiltViewModel)
-- Annotation Processing: KSP (Kotlin Symbol Processing)
-- Asynchronous State: Kotlin Coroutines & StateFlow / SharedFlow
+- Firebase SDK: Firebase BoM 33.7.0 (Authentication, Cloud Firestore, Analytics)
 - Architecture: MVVM + Repository Pattern + Clean Architecture
 - Minimum SDK: 24 (Android 7.0) | Compile SDK: 35 (Android 15)
 
@@ -43,27 +46,30 @@ com.univ.learningapp/
 ├── LearningApplication.kt                 # Application Entry Point (@HiltAndroidApp)
 ├── MainActivity.kt                        # Single Activity Host (@AndroidEntryPoint)
 ├── di/
-│   └── RepositoryModule.kt                # Dagger Hilt @Binds bindings (Interfaces -> Impl)
+│   └── RepositoryModule.kt                # Dagger Hilt @Binds bindings (FirebaseAuth/Firestore -> Domain Repos)
 ├── data/
 │   ├── model/                             # Data Transfer Objects & Entities
-│   │   ├── User.kt                        # User profile model (id, name, email, token)
+│   │   ├── User.kt                        # User profile model (id, name, email, role: MEMBER | PENDING_ADMIN | ADMIN | SUPER_ADMIN)
 │   │   ├── PdfMaterial.kt                 # PDF notes & Video model (type, title, subject, pages, duration, url, isLocked, price)
 │   │   ├── Question.kt                    # Question & UserQuestionState models
 │   │   ├── ExamInfo.kt                    # Exam metadata model (50 questions, 60 mins, 200 marks, category, isLocked, price)
 │   │   ├── ExamResult.kt                  # Result, scorecard, rank, accuracy & review item models
 │   │   └── TestHistoryItem.kt             # Test history log entity (date, score, rank, percentile, accuracy)
-│   └── repository/                        # Local Mock Repository Implementations
-│       ├── AuthRepositoryImpl.kt          # Mock login, signup, password reset flow
-│       ├── LearningRepositoryImpl.kt      # Mock PDF/Video list, exam list, unlock flow, test history
-│       └── TestRepositoryImpl.kt          # 50-MCQ question generator, timer & rank calculator
+│   └── repository/                        # Real Firebase Repository Implementations
+│       ├── FirebaseAuthRepositoryImpl.kt  # Real Firebase Auth & Firestore users/{uid} profile/role sync & approvals
+│       ├── FirebaseLearningRepositoryImpl.kt # Real Firestore materials, test_series, admin CRUD, bulk JSON import
+│       └── FirebaseTestRepositoryImpl.kt  # Dynamic questions fetch, real-time All India Rank & percentile
 ├── domain/
 │   └── repository/                        # Abstraction Repository Interfaces
-│       ├── AuthRepository.kt              # Auth interface contract
-│       ├── LearningRepository.kt          # PDFs/Videos, Exam list, unlock, test history contract
+│       ├── AuthRepository.kt              # Auth & User Roles interface contract
+│       ├── LearningRepository.kt          # PDFs/Videos, Exam list, unlock, test history, Admin CRUD, Bulk JSON contract
 │       └── TestRepository.kt              # Mock test, submission & result review contract
 └── ui/
     ├── theme/                             # Color.kt, Type.kt, Theme.kt (Custom M3 styling)
     ├── navigation/                        # Screen.kt, NavGraph.kt (Jetpack Compose Navigation)
+    ├── admin/                             # Admin Console Feature
+    │   ├── AdminViewModel.kt              # Admin content & user roles manager viewmodel
+    │   └── AdminConsoleScreen.kt          # User roles, Exam & MCQ creator, PDF/Video creator, Bulk JSON Importer
     ├── auth/                              # Authentication Feature
     │   ├── AuthViewModel.kt               # StateFlow auth viewmodel
     │   ├── LoginScreen.kt                 # Login UI composable
@@ -71,10 +77,10 @@ com.univ.learningapp/
     │   └── ForgotPasswordScreen.kt        # Password reset UI composable
     ├── dashboard/                         # Dashboard Feature
     │   ├── DashboardViewModel.kt          # Tabs, search query, filter selection, unlock viewmodel
-    │   └── DashboardScreen.kt             # TopBar history, search bar, 2 tabs, filter chips, lock/unlock payment dialog
+    │   └── DashboardScreen.kt             # TopBar history, search bar, 3 tabs, admin console button
     ├── history/                           # Test History Feature
     │   ├── TestHistoryViewModel.kt        # History loader viewmodel
-    │   └── TestHistoryScreen.kt           # Past test attempts, rank, scores, solution review link
+    │   └── TestHistoryScreen.kt           # Past test attempts, rank, scores, scorecard link
     └── test/                              # Mock Test & Solution Review Feature
         ├── TestViewModel.kt               # Timer, 50-MCQ state, palette state & submit viewmodel
         ├── MockTestScreen.kt              # Timer header, 1..50 question palette, submit dialog
@@ -86,22 +92,12 @@ com.univ.learningapp/
 --------------------------------------------------------------------------------
 Route                              | Composable Screen      | Purpose
 -----------------------------------+------------------------+--------------------------------------------------
-login                              | LoginScreen            | Email/password sign-in, signup/forgot pass links
-signup                             | SignupScreen           | Account registration
-forgot_password                    | ForgotPasswordScreen   | Password reset link request
-dashboard                          | DashboardScreen        | User welcome, 2 Tabs (Questions/Videos), Search & Filters
+login                              | LoginScreen            | Email/password sign-in against Firebase Auth
+signup                             | SignupScreen           | Account registration (MEMBER or ADMIN)
+forgot_password                    | ForgotPasswordScreen   | Password reset email request via Firebase
+dashboard                          | DashboardScreen        | User welcome, 3 Tabs (Mock Tests, Study Notes, History)
+admin_console                      | AdminConsoleScreen     | In-App Content & User Roles Manager for ADMIN/SUPER_ADMIN
 test_history                       | TestHistoryScreen      | History of all attempted test scores, ranks & review links
 mock_test/{examId}/{examTitle}     | MockTestScreen         | 50-MCQ exam launcher with 60-min timer & 1..50 palette
-test_result/{resultId}             | TestResultScreen       | Overall Scorecard, Rank #, Percentile %, Accuracy %
-detailed_review/{resultId}         | DetailedReviewScreen   | Complete 50-question review with solutions & filters
-
---------------------------------------------------------------------------------
-5. HOW TO DO FUTURE DEVELOPMENT & CONNECT REST APIs
---------------------------------------------------------------------------------
-To connect a live REST API backend:
-1. Add Retrofit/Ktor dependencies in gradle/libs.versions.toml.
-2. Create API service interfaces in data/remote/ (e.g., AuthApiService, LearningApiService).
-3. Create remote repository implementations (e.g., RemoteAuthRepositoryImpl, RemoteLearningRepositoryImpl).
-4. Update Dagger Hilt bindings in app/src/main/java/com/univ/learningapp/di/RepositoryModule.kt:
-   Change @Binds implementations from local mock classes to remote classes.
-5. All ViewModels and Composables consume Domain Repository Interfaces, so no UI code changes are needed!
+test_result/{resultId}             | TestResultScreen       | Overall Scorecard, Real Rank #, Percentile %, Accuracy %
+detailed_review/{resultId}         | DetailedReviewScreen   | Complete 50-question review with user answers vs correct options

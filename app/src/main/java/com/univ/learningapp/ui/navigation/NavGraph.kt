@@ -8,6 +8,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.univ.learningapp.ui.admin.AdminConsoleScreen
+import com.univ.learningapp.ui.admin.AdminViewModel
 import com.univ.learningapp.ui.auth.AuthViewModel
 import com.univ.learningapp.ui.auth.ForgotPasswordScreen
 import com.univ.learningapp.ui.auth.LoginScreen
@@ -85,6 +87,9 @@ fun LearningNavHost(
                 onNavigateToHistory = {
                     navController.navigate(Screen.TestHistory.route)
                 },
+                onNavigateToAdminConsole = {
+                    navController.navigate(Screen.AdminConsole.route)
+                },
                 onViewScorecard = { resultId ->
                     navController.navigate(Screen.TestResult.createRoute(resultId))
                 },
@@ -92,6 +97,17 @@ fun LearningNavHost(
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Dashboard.route) { inclusive = true }
                     }
+                }
+            )
+        }
+
+        // Admin Console Route
+        composable(Screen.AdminConsole.route) {
+            val adminViewModel: AdminViewModel = hiltViewModel()
+            AdminConsoleScreen(
+                viewModel = adminViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

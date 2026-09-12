@@ -6,6 +6,7 @@ sealed class Screen(val route: String) {
     object ForgotPassword : Screen("forgot_password")
     object Dashboard : Screen("dashboard")
     object TestHistory : Screen("test_history")
+    object AdminConsole : Screen("admin_console")
 
     object MockTest : Screen("mock_test/{examId}/{examTitle}") {
         fun createRoute(examId: String, examTitle: String): String {
